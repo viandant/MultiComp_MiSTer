@@ -309,6 +309,8 @@ set_location_assignment PIN_T8 -to HDMI_TX_HS
 set_location_assignment PIN_AF11 -to HDMI_TX_INT
 set_location_assignment PIN_V13 -to HDMI_TX_VS
 
+set_instance_assignment -name HPS_LOCATION HPSINTERFACEPERIPHERALUART_X52_Y67_N111 -entity sys_top -to uart
+
 #============================================================
 # KEY
 #============================================================

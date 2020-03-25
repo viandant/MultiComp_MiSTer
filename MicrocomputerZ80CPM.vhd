@@ -34,6 +34,7 @@ entity MicrocomputerZ80CPM is
 		rxd1			: in std_logic;
 		txd1			: out std_logic;
 		rts1			: out std_logic;
+                cts1                    : in  std_logic;
 
 		rxd2			: in std_logic;
 		txd2			: out std_logic;
@@ -203,8 +204,8 @@ port map (
 io2 : entity work.bufferedUART
 port map(
 	clk => clk,
-	n_wr => n_interface1CS or cpuClock or n_WR,
-	n_rd => n_interface1CS or cpuClock or (not n_WR),
+	n_wr => n_interface2CS or n_ioWR,
+	n_rd => n_interface2CS or n_ioRD,
 	n_int => n_int1,
 	regSel => cpuAddress(0),
 	dataIn => cpuDataOut,
@@ -213,11 +214,12 @@ port map(
 	txClock => serialClock,
 	rxd => rxd1,
 	txd => txd1,
-	n_cts => '0',
+	n_cts => cts1,
 	n_dcd => '0',
 	n_rts => rts1
 );
 
+        
 sd1 : entity work.sd_controller
 port map(
 	sdCS => sdCS,

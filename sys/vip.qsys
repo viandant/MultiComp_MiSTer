@@ -585,6 +585,7 @@
  <interface name="ctl" internal="Controller.control" type="conduit" dir="end" />
  <interface name="finish" internal="Reset_Source.reset_cold_req" />
  <interface name="hdmi" internal="Output.Output" type="conduit" dir="end" />
+ <interface name="hps_uart0" internal="HPS.uart0" type="conduit" dir="end" />
  <interface name="in" internal="Input.input" type="conduit" dir="end" />
  <interface name="out_mix_0_Output" internal="Output.Output1" />
  <interface name="out_mix_0_input" internal="Output.input1" />
@@ -770,8 +771,8 @@
   <parameter name="TPIUFPGA_alt" value="false" />
   <parameter name="TRACE_Mode" value="N/A" />
   <parameter name="TRACE_PinMuxing" value="Unused" />
-  <parameter name="UART0_Mode" value="N/A" />
-  <parameter name="UART0_PinMuxing" value="Unused" />
+  <parameter name="UART0_Mode" value="Full" />
+  <parameter name="UART0_PinMuxing" value="FPGA" />
   <parameter name="UART1_Mode" value="N/A" />
   <parameter name="UART1_PinMuxing" value="Unused" />
   <parameter name="USB0_Mode" value="N/A" />

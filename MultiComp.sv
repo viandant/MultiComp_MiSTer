@@ -101,7 +101,19 @@ module emu
 	output        SDRAM_nCS,
 	output        SDRAM_nCAS,
 	output        SDRAM_nRAS,
-	output        SDRAM_nWE
+	output        SDRAM_nWE,
+
+       //UART
+       output UART_DTR,
+       input  UART_DSR,
+       input  UART_CTS,
+       output UART_RTS,
+       input  UART_RXD,
+       output UART_TXD
+
+       //	input 	     cd,          // rs232 Carrier Detect
+       //	input 	     ri,          // rs232 Ring Indicator
+
 );
 
 assign {SD_SCK, SD_MOSI, SD_CS} = 'Z;
@@ -117,6 +129,7 @@ assign LED_POWER = 0;
 assign VIDEO_ARX = 4;
 assign VIDEO_ARY = 3;
 
+assign UART_DTR = 1;
 
 `include "build_id.v"
 localparam CONF_STR = {
@@ -221,7 +234,13 @@ MicrocomputerZ80CPM MicrocomputerZ80CPM
 	.sdMOSI(_SD_MOSI[0]),
 	.sdMISO(SD_MISO),
 	.sdSCLK(_SD_SCK[0]),
-	.driveLED(_driveLED[0])
+	.driveLED(_driveLED[0]),
+
+	.cts1(UART_CTS),
+	.rts1(UART_RTS),
+	.rxd1(UART_RXD),
+	.txd1(UART_TXD)
+
 );
 
 Microcomputer6502Basic Microcomputer6502Basic

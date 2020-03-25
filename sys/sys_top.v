@@ -365,6 +365,17 @@ vip vip
 	.hdmi_de(hdmi_de),
 	.hdmi_v_sync(HDMI_TX_VS),
 	.hdmi_h_sync(HDMI_TX_HS)
+
+        //UART
+	.hps_uart0_cts(uart_cts),      // hps_uart0.cts
+	.hps_uart0_dsr(uart_dsr),      //          .dsr
+	.hps_uart0_dtr(uart_dtr),      //          .dtr
+        .hps_uart0_dcd(uart_dsr),
+        .hps_uart0_ri(0),
+	.hps_uart0_rts(uart_rts),      //          .rts
+	.hps_uart0_rxd(uart_rxd),      //          .rxd
+	.hps_uart0_txd(uart_txd)       //          .txd
+
 );
 
 wire  [8:0] ctl_address;
@@ -847,6 +858,13 @@ wire vs_emu, hs_emu;
 sync_fix sync_v(FPGA_CLK3_50, vs_emu, vs);
 sync_fix sync_h(FPGA_CLK3_50, hs_emu, hs);
 
+wire uart_dtr;
+wire uart_dsr;
+wire uart_cts;
+wire uart_rts;
+wire uart_rxd;
+wire uart_txd;
+
 emu emu
 (
 	.CLK_50M(FPGA_CLK3_50),
@@ -911,8 +929,28 @@ emu emu
 	.SDRAM_nRAS(SDRAM_nRAS),
 	.SDRAM_nCAS(SDRAM_nCAS),
 	.SDRAM_CLK(SDRAM_CLK),
-	.SDRAM_CKE(SDRAM_CKE)
+	.SDRAM_CKE(SDRAM_CKE),
+
+  	.UART_CTS(uart_rts),
+	.UART_RTS(uart_cts),
+	.UART_RXD(uart_txd),
+	.UART_TXD(uart_rxd),
+	.UART_DTR(uart_dsr),
+	.UART_DSR(uart_dtr)
+
 );
+cyclonev_hps_interface_peripheral_uart uart
+(
+	.ri(0),
+	.dsr(uart_dsr),
+	.dcd(uart_dsr),
+	.dtr(uart_dtr),
+
+	.cts(uart_cts),
+	.rts(uart_rts),
+	.rxd(uart_rxd),
+	.txd(uart_txd)
+  );
 
 endmodule
 

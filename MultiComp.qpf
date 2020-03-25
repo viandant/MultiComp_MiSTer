@@ -19,14 +19,14 @@
 #
 # Quartus Prime
 # Version 17.0.0 Build 595 04/25/2017 SJ Lite Edition
-# Date created = 09:46:14  June 22, 2018
+# Date created = 01:44:50  March 09, 2020
 #
 # -------------------------------------------------------------------------- #
 
 QUARTUS_VERSION = "17.0"
-DATE = "09:46:14  June 22, 2018"
+DATE = "01:44:50  March 09, 2020"
 
 # Revisions
 
-PROJECT_REVISION = "MultiComp"
 PROJECT_REVISION = "MultiComp-lite"
+PROJECT_REVISION = "MultiComp"
