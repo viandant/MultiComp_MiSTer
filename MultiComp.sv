@@ -36,7 +36,7 @@ module emu
 	input         RESET,
 
 	//Must be passed to hps_io module
-	inout  [44:0] HPS_BUS,
+	inout  [45:0] HPS_BUS,
 
 	//Base video clock. Usually equals to CLK_SYS.
 	output        CLK_VIDEO,
@@ -109,11 +109,23 @@ module emu
        input  UART_CTS,
        output UART_RTS,
        input  UART_RXD,
-       output UART_TXD
+       output UART_TXD,
 
        //	input 	     cd,          // rs232 Carrier Detect
        //	input 	     ri,          // rs232 Ring Indicator
 
+
+        // ignored parameters
+	inout   [3:0] ADC_BUS,
+	output  [1:0] BUTTONS,
+
+	input [6:0]   USER_IN,
+	output [6:0]  USER_OUT,
+
+	output        VGA_F1,
+	output  [1:0] VGA_SL,
+
+	input 	      OSD_STATUS
 );
 
 assign {SD_SCK, SD_MOSI, SD_CS} = 'Z;
@@ -141,6 +153,17 @@ localparam CONF_STR = {
 };
 
 
+wire 		      clk_100;
+
+     
+pll pll
+(
+	.refclk(CLK_50M),
+	.outclk_0(clk_100)
+  );
+
+
+
 //////////////////   HPS I/O   ///////////////////
 wire  [1:0] buttons;
 wire [31:0] status;
@@ -160,7 +183,7 @@ wire  [7:0] sd_buff_din;
 wire        sd_buff_wr;
 wire        sd_ack_conf;
 
-hps_io #(.STRLEN($size(CONF_STR)>>3)) hps_io
+hps_io #(.STRLEN($size(CONF_STR)>>3), .PS2DIV(2000)) hps_io
 (
 	.clk_sys(CLK_50M),
 	.HPS_BUS(HPS_BUS),
@@ -181,7 +204,7 @@ wire reset = RESET | status[0] | buttons[1];
 
 ///////////////////////////////////////////////////
 
-assign CLK_VIDEO = CLK_50M;
+assign CLK_VIDEO = clk_100;
 
 typedef enum {cpuZ80CPM='b00, cpu6502Basic='b01, cpu6809Basic='b10} cpu_type_enum;
 wire [1:0] cpu_type = status[8:7];
