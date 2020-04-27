@@ -1,0 +1,3 @@
+[submodule "secd"]
+	path = secd
+	url = git@github.com:viandant/secd.git

@@ -147,7 +147,7 @@ assign UART_DTR = 1;
 localparam CONF_STR = {
 	"MultiComp;;",
 	"-;",
-	"O78,CPU-ROM,Z80-CP/M,6502-Basic,6809-Basic;",
+	"O78,CPU-ROM,Z80-CP/M,6502-Basic,6809-Basic,6809-Forth;",
 	"-;",
 	"V,v1.1.",`BUILD_DATE
 };
@@ -206,7 +206,7 @@ wire reset = RESET | status[0] | buttons[1];
 
 assign CLK_VIDEO = clk_100;
 
-typedef enum {cpuZ80CPM='b00, cpu6502Basic='b01, cpu6809Basic='b10} cpu_type_enum;
+typedef enum {cpuZ80CPM='b00, cpu6502Basic='b01, cpu6809Basic='b10, cpu6809Forth='b11} cpu_type_enum;
 wire [1:0] cpu_type = status[8:7];
 
 wire hblank, vblank;
@@ -214,14 +214,14 @@ wire hs, vs;
 wire [1:0] r,g,b;
 wire driveLED;
 
-wire [2:0] _hblank, _vblank;
-wire [2:0] _hs, _vs;
-wire [1:0] _r[2:0], _g[2:0], _b[2:0];
-wire [2:0] _CE_PIXEL;
-wire [2:0] _SD_CS;
-wire [2:0] _SD_MOSI;
-wire [2:0] _SD_SCK;
-wire [2:0] _driveLED;
+wire [3:0] _hblank, _vblank;
+wire [3:0] _hs, _vs;
+wire [1:0] _r[3:0], _g[3:0], _b[3:0];
+wire [3:0] _CE_PIXEL;
+wire [3:0] _SD_CS;
+wire [3:0] _SD_MOSI;
+wire [3:0] _SD_SCK;
+wire [3:0] _driveLED;
 
 always_comb 
 begin
@@ -307,6 +307,28 @@ Microcomputer6809Basic Microcomputer6809Basic
 	.sdMISO(SD_MISO),
 	.sdSCLK(_SD_SCK[2]),
 	.driveLED(_driveLED[2])
+);
+
+
+Microcomputer6809Forth Microcomputer6809Forth
+(
+	.N_RESET(~reset & cpu_type == cpu6809Forth),
+	.clk(cpu_type == cpu6809Forth ? CLK_50M : 0),
+	.R(_r[3][1:0]),
+	.G(_g[3][1:0]),
+	.B(_b[3][1:0]),
+	.HS(_hs[3]),
+	.VS(_vs[3]),
+	.hBlank(_hblank[3]),
+	.vBlank(_vblank[3]),
+	.cepix(_CE_PIXEL[3]),
+	.ps2Clk(PS2_CLK),
+	.ps2Data(PS2_DAT),
+	.sdCS(_SD_CS[3]),
+	.sdMOSI(_SD_MOSI[3]),
+	.sdMISO(SD_MISO),
+	.sdSCLK(_SD_SCK[3]),
+	.driveLED(_driveLED[3])
 );
 
 video_cleaner video_cleaner
