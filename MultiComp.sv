@@ -222,21 +222,27 @@ wire [3:0] _SD_CS;
 wire [3:0] _SD_MOSI;
 wire [3:0] _SD_SCK;
 wire [3:0] _driveLED;
-
+wire [3:0] _uart_dtr;
+wire [3:0] _uart_rts;
+wire [3:0] _uart_txd;
+	   
 always_comb 
 begin
-	hblank 		<= _hblank[cpu_type];
-	vblank 		<= _vblank[cpu_type];
-	hs 		 	<= _hs[cpu_type];
-	vs				<= _vs[cpu_type];
-	r 				<= _r[cpu_type][1:0];
-	g 				<= _g[cpu_type][1:0];
-	b				<= _b[cpu_type][1:0];
-	CE_PIXEL		<= _CE_PIXEL[cpu_type];
-	SD_CS			<= _SD_CS[cpu_type];
-	SD_MOSI		<= _SD_MOSI[cpu_type];
-	SD_SCK		<= _SD_SCK[cpu_type];
-	driveLED 	<= _driveLED[cpu_type];
+       	hblank   <= _hblank[cpu_type];
+       	vblank   <= _vblank[cpu_type];
+       	hs 	 <= _hs[cpu_type];
+       	vs 	 <= _vs[cpu_type];
+       	r 	 <= _r[cpu_type][1:0];
+       	g 	 <= _g[cpu_type][1:0];
+       	b 	 <= _b[cpu_type][1:0];
+       	CE_PIXEL <= _CE_PIXEL[cpu_type];
+       	SD_CS    <= _SD_CS[cpu_type];
+       	SD_MOSI  <= _SD_MOSI[cpu_type];
+       	SD_SCK   <= _SD_SCK[cpu_type];
+       	driveLED <= _driveLED[cpu_type];
+        //UART_DTR <= _uart_dtr[cpu_type]; //Currently not used
+       	UART_RTS <= _uart_rts[cpu_type];
+       	UART_TXD <= _uart_txd[cpu_type];
 end
 
 MicrocomputerZ80CPM MicrocomputerZ80CPM
@@ -260,9 +266,9 @@ MicrocomputerZ80CPM MicrocomputerZ80CPM
 	.driveLED(_driveLED[0]),
 
 	.cts1(UART_CTS),
-	.rts1(UART_RTS),
+	.rts1(_uart_rts[0]),
 	.rxd1(UART_RXD),
-	.txd1(UART_TXD)
+	.txd1(_uart_txd[0])
 
 );
 
@@ -328,7 +334,11 @@ Microcomputer6809Forth Microcomputer6809Forth
 	.sdMOSI(_SD_MOSI[3]),
 	.sdMISO(SD_MISO),
 	.sdSCLK(_SD_SCK[3]),
-	.driveLED(_driveLED[3])
+	.driveLED(_driveLED[3]),
+	.cts1(UART_CTS),
+	.rts1(_uart_rts[3]),
+	.rxd1(UART_RXD),
+	.txd1(_uart_txd[3])
 );
 
 video_cleaner video_cleaner
