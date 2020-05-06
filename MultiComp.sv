@@ -130,9 +130,16 @@ module emu
 
 assign {SD_SCK, SD_MOSI, SD_CS} = 'Z;
 assign {SDRAM_DQ, SDRAM_A, SDRAM_BA, SDRAM_CLK, SDRAM_CKE, SDRAM_DQML, SDRAM_DQMH, SDRAM_nWE, SDRAM_nCAS, SDRAM_nRAS, SDRAM_nCS} = 'Z;
-assign {DDRAM_CLK, DDRAM_BURSTCNT, DDRAM_ADDR, DDRAM_DIN, DDRAM_BE, DDRAM_RD, DDRAM_WE} = 0;
+//assign {DDRAM_CLK, DDRAM_BURSTCNT, DDRAM_ADDR, DDRAM_DIN, DDRAM_BE, DDRAM_RD, DDRAM_WE} = 0;
+assign DDRAM_CLK = clk_100;
 
-assign LED_USER  = 0;
+reg sig_led_user;
+
+always @(posedge DDRAM_CLK) begin
+   sig_led_user <= DDRAM_DOUT_READY;
+end
+
+assign LED_USER  = sig_led_user;
 assign LED_DISK  = ~driveLED;
 
 
@@ -338,7 +345,18 @@ Microcomputer6809Forth Microcomputer6809Forth
 	.cts1(UART_CTS),
 	.rts1(_uart_rts[3]),
 	.rxd1(UART_RXD),
-	.txd1(_uart_txd[3])
+	.txd1(_uart_txd[3]),
+
+        .DDRAM_CLK(DDRAM_CLK),
+  	.DDRAM_BUSY(DDRAM_BUSY),
+  	.DDRAM_BURSTCNT(DDRAM_BURSTCNT),
+  	.DDRAM_ADDR(DDRAM_ADDR),
+  	.DDRAM_DOUT(DDRAM_DOUT),
+  	.DDRAM_DOUT_READY(DDRAM_DOUT_READY),
+  	.DDRAM_RD(DDRAM_RD),
+  	.DDRAM_DIN(DDRAM_DIN),
+  	.DDRAM_BE(DDRAM_BE),
+  	.DDRAM_WE(DDRAM_WE)
 );
 
 video_cleaner video_cleaner

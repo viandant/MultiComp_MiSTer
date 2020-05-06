@@ -23,6 +23,7 @@
 	`define USE_DDRAM
 	`define USE_SDRAM
 `endif
+`define USE_DDRAM
 
 module sys_top
 (

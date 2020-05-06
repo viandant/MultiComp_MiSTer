@@ -34,7 +34,7 @@ entity Microcomputer6809Forth is
 		rxd1			: in std_logic;
 		txd1			: out std_logic;
 		rts1			: out std_logic;
-                cts1                    : in  std_logic;
+      cts1			: in  std_logic;
 
 		rxd2			: in std_logic;
 		txd2			: out std_logic;
@@ -46,7 +46,7 @@ entity Microcomputer6809Forth is
 		R       		: out std_logic_vector(1 downto 0);
 		G       		: out std_logic_vector(1 downto 0);
 		B       		: out std_logic_vector(1 downto 0);
-		HS		  		: out std_logic;
+		HS	         : out std_logic;
 		VS 			: out std_logic;
 		hBlank		: out std_logic;
 		vBlank		: out std_logic;
@@ -59,18 +59,59 @@ entity Microcomputer6809Forth is
 		sdMOSI		: out std_logic;
 		sdMISO		: in std_logic;
 		sdSCLK		: out std_logic;
-		driveLED		: out std_logic :='1'	
-	);
+		driveLED		: out std_logic :='1';
+
+      DDRAM_CLK	:  in std_logic;
+      DDRAM_BUSY	: in std_logic;      
+      DDRAM_BURSTCNT: out std_logic_vector(7 downto 0);
+      DDRAM_ADDR	: out std_logic_vector(28 downto 0);
+      DDRAM_DOUT	: in std_logic_vector(63 downto 0);
+      DDRAM_DOUT_READY: in std_logic;
+      DDRAM_RD		: out std_logic;
+      DDRAM_DIN	: out std_logic_vector(63 downto 0);
+      DDRAM_BE		: out std_logic_vector(7 downto 0);
+      DDRAM_WE		: out std_logic      
+      );
 end Microcomputer6809Forth;
 
 architecture struct of Microcomputer6809Forth is
+
+  component ddram is
+    port (
+      DDRAM_CLK         : in std_logic;
+  
+      DDRAM_BUSY        : in std_logic;
+      DDRAM_BURSTCNT    : out std_logic_vector(7 downto 0);
+      DDRAM_ADDR        : out std_logic_vector(28 downto 0);
+      DDRAM_DOUT        : in std_logic_vector(63 downto 0);
+      DDRAM_DOUT_READY  : in std_logic;
+      DDRAM_RD          : out std_logic;
+      DDRAM_DIN         : out std_logic_vector(63 downto 0);
+      DDRAM_BE          : out std_logic_vector(7 downto 0);
+      DDRAM_WE          : out std_logic;
+
+      wraddr            : in std_logic_vector(27 downto 0);      
+      din               : in std_logic_vector(7 downto 0);
+      we_req            : in std_logic;
+      we_ack            : out std_logic;
+      
+      rdaddr            : in std_logic_vector(27 downto 0);
+      dout              : out std_logic_vector(7 downto 0);
+      rd_req            : in std_logic;
+      rd_rdy            : out std_logic;
+      dbg_state         : out std_logic_vector(1 downto 0);
+      reset             : in std_logic
+      );
+  end component ddram;
+  
 
 	signal n_WR							: std_logic;
 	signal n_RD							: std_logic;
 	signal cpuAddress					: std_logic_vector(15 downto 0);
 	signal cpuDataOut					: std_logic_vector(7 downto 0);
 	signal cpuDataIn					: std_logic_vector(7 downto 0);
-
+        signal cpuHold                                          : std_logic;
+        
 	signal basRomData					: std_logic_vector(7 downto 0);
 	signal internalRam1DataOut		: std_logic_vector(7 downto 0);
 	signal internalRam2DataOut		: std_logic_vector(7 downto 0);
@@ -93,10 +134,13 @@ architecture struct of Microcomputer6809Forth is
 	signal n_externalRamCS			: std_logic :='1';
 	signal n_internalRam1CS			: std_logic :='1';
 	signal n_internalRam2CS			: std_logic :='1';
-	signal n_basRomCS					: std_logic :='1';
+	signal n_basRomCS             : std_logic :='1';
 	signal n_interface1CS			: std_logic :='1';
-	signal n_interface2CS			: std_logic :='1';
-	signal n_sdCardCS					: std_logic :='1';
+   signal n_interface2CS			: std_logic :='1';
+	signal n_shramStateCS			: std_logic :='1';
+	signal n_shramCS					: std_logic :='1';
+	signal n_shramControlCS			: std_logic :='1';
+	signal n_sdCardCS        		: std_logic :='1';
 
 	signal serialClkCount			: std_logic_vector(15 downto 0);
 	signal cpuClkCount				: std_logic_vector(5 downto 0); 
@@ -105,6 +149,16 @@ architecture struct of Microcomputer6809Forth is
 	signal serialClock				: std_logic;
 	signal sdClock						: std_logic;
 
+	signal shramData		         : std_logic_vector(7 downto 0);
+	signal shramAddress           : std_logic_vector(15 downto 0);
+	signal shramAddrHi            : std_logic_vector(15 downto 0) := (others => '0');
+	signal shramWeReq             : std_logic;
+	signal shramWeAck             : std_logic;
+	signal shramRdReq             : std_logic;
+	signal shramRdRdy             : std_logic;
+	signal shramState             : std_logic_vector(1 downto 0);
+	signal shramReset             : std_logic;
+  
 begin
 
 -- ____________________________________________________________________________________
@@ -119,7 +173,7 @@ port map(
 	data_in => cpuDataIn,
 	data_out => cpuDataOut,
 	halt => '0',
-	hold => '0',
+	hold => cpuHold,
 	irq => '0',
 	firq => '0',
 	nmi => '0'
@@ -217,6 +271,65 @@ port map(
 	clk => sdClock -- twice the spi clk
 );
 
+
+-- Shared RAM for communication with HPS and other 'computers'
+shram: ddram
+  port map(
+    DDRAM_CLK => DDRAM_CLK,
+    DDRAM_BUSY => DDRAM_BUSY,
+    DDRAM_BURSTCNT => DDRAM_BURSTCNT,
+    DDRAM_ADDR => DDRAM_ADDR,
+    DDRAM_DOUT => DDRAM_DOUT,
+    DDRAM_DOUT_READY => DDRAM_DOUT_READY,
+    DDRAM_RD => DDRAM_RD,
+    DDRAM_DIN => DDRAM_DIN,
+    DDRAM_BE  => DDRAM_BE,
+    DDRAM_WE  => DDRAM_WE,
+
+    wraddr    => B"0000" & shramAddrHi & cpuAddress(7 downto 0),
+    din       => cpuDataOut,
+    we_req    => shramWeReq,
+    we_ack    => shramWeAck,
+
+    rdaddr    => B"0000" & shramAddrHi & cpuAddress(7 downto 0),
+    dout      => shramData ,
+    rd_req    => shramRdReq,
+    rd_rdy    => shramRdRdy,
+    dbg_state => shramState,
+    reset     => shramReset or not n_reset
+    );
+
+cpuHold <= '1' when (shramRdRdy = '0') else '0';
+shram_ioReq : process(clk)
+begin
+  if rising_edge(clk) then
+    if (shramWeAck = shramWeReq ) and (n_shramCS = '0') and (n_WR = '0') then
+      shramWeReq <=  not shramWeReq;
+    end if;   
+    shramRdReq <= (not n_shramCS) and n_WR;
+  end if;
+end process;
+
+shram_control : process(clk)
+begin
+  if rising_edge(clk) then
+    if n_WR = '0' and n_shramControlCS = '0' then
+      case cpuAddress(2 downto 0) is
+        when B"001" =>
+          shramAddrHi(15 downto 8) <= cpuDataOut;
+        when B"010" =>
+          shramAddrHi(7 downto 0) <= cpuDataOut;
+        when B"100" =>
+          shramReset <= '1';
+        when others => 
+          null;
+      end case;
+    else
+      shramReset <= '0';
+    end if;
+  end if;
+end process;
+
 -- ____________________________________________________________________________________
 -- MEMORY READ/WRITE LOGIC GOES HERE
 
@@ -227,11 +340,14 @@ n_memWR <= not(cpuClock) nand (not n_WR);
 -- CHIP SELECTS GO HERE
 
 
-n_basRomCS     <= '0' when cpuAddress(15 downto 14) = "11" else '1'; --16K at top of memory
-n_interface1CS <= '0' when cpuAddress(15 downto 1) = "101100000000000" else '1'; -- 2 bytes B000-B001 (Display+KBD)
-n_interface2CS <= '0' when cpuAddress(15 downto 1) = "101100000000001" else '1'; -- 2 bytes B002-B003 (Serial to HPS)
-n_sdCardCS     <= '1'; -- 8 bytes No SD-Card yet
-n_internalRam1CS <= not n_basRomCS; -- Full Internal RAM - 64 K
+n_basRomCS       <= '0' when cpuAddress(15 downto 14) = "11"               else '1'; --16K at top of memory
+n_interface1CS   <= '0' when cpuAddress(15 downto 1)  = "101100000000000"  else '1'; -- 2 bytes B000-B001 (Display+KBD)
+n_interface2CS   <= '0' when cpuAddress(15 downto 1)  = "101100000000001"  else '1'; -- 2 bytes B002-B003 (Serial to HPS)
+n_shramCS        <= '0' when cpuAddress(15 downto 8)  = "10110010"         else '1'; -- B200-B2FF SHRAM memory page
+n_shramStateCS   <= '0' when cpuAddress(15 downto 0)  = "1011000101000011" else '1'; -- B143 SHRAM State for Debugging
+n_shramControlCS <= '0' when cpuAddress(15 downto 3)  = "1011000101000"    else '1'; -- B14X SHRAM Control
+n_sdCardCS       <= '1'; -- 8 bytes No SD-Card yet
+n_internalRam1CS <= not n_basRomCS or not n_shramCS ; -- Full Internal RAM - 64 K
 
 -- ____________________________________________________________________________________
 -- BUS ISOLATION GOES HERE
@@ -241,6 +357,10 @@ interface1DataOut when n_interface1CS = '0' else
 interface2DataOut when n_interface2CS = '0' else
 sdCardDataOut when n_sdCardCS = '0' else
 basRomData when n_basRomCS = '0' else
+"000000" & shramState when n_shramStateCS = '0' else
+shramAddrHi(15 downto 8) when n_shramControlCS = '0' and cpuAddress(2 downto 0) = B"001" else
+shramAddrHi(7 downto 0) when n_shramControlCS = '0' and cpuAddress(2 downto 0) = B"010" else
+shramData when n_shramCS = '0' else  
 internalRam1DataOut when n_internalRam1CS= '0' else
 sramData when n_externalRamCS= '0' else
 x"FF";

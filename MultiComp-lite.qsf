@@ -9,6 +9,7 @@
 # --------------------------------------------------------------------------
 
 set_global_assignment -name VERILOG_MACRO "LITE=1"
+set_global_assignment -name VERILOG_MACRO "USE_DDRAM=1"
 
 set_global_assignment -name TOP_LEVEL_ENTITY sys_top
 set_global_assignment -name ORIGINAL_QUARTUS_VERSION 17.0.0
