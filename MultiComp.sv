@@ -135,11 +135,7 @@ assign DDRAM_CLK = clk_100;
 
 reg sig_led_user;
 
-always @(posedge DDRAM_CLK) begin
-   sig_led_user <= DDRAM_DOUT_READY;
-end
-
-assign LED_USER  = sig_led_user;
+assign LED_USER  = 1;
 assign LED_DISK  = ~driveLED;
 
 
@@ -154,7 +150,7 @@ assign UART_DTR = 1;
 localparam CONF_STR = {
 	"MultiComp;;",
 	"-;",
-	"O78,CPU-ROM,Z80-CP/M,6502-Basic,6809-Basic,6809-Forth;",
+	"O78,CPU-ROM,6809-Forth,Z80-CP/M,6502-Basic,6809-Basic;",
 	"-;",
 	"V,v1.1.",`BUILD_DATE
 };
@@ -213,7 +209,7 @@ wire reset = RESET | status[0] | buttons[1];
 
 assign CLK_VIDEO = clk_100;
 
-typedef enum {cpuZ80CPM='b00, cpu6502Basic='b01, cpu6809Basic='b10, cpu6809Forth='b11} cpu_type_enum;
+typedef enum {cpuZ80CPM='b01, cpu6502Basic='b10, cpu6809Basic='b11, cpu6809Forth='b00} cpu_type_enum;
 wire [1:0] cpu_type = status[8:7];
 
 wire hblank, vblank;
@@ -256,26 +252,26 @@ MicrocomputerZ80CPM MicrocomputerZ80CPM
 (
 	.N_RESET(~reset & cpu_type == cpuZ80CPM),
 	.clk(cpu_type == cpuZ80CPM ? CLK_50M : 0),
-	.R(_r[0][1:0]),
-	.G(_g[0][1:0]),
-	.B(_b[0][1:0]),
-	.HS(_hs[0]),
-	.VS(_vs[0]),
-	.hBlank(_hblank[0]),
-	.vBlank(_vblank[0]),
-	.cepix(_CE_PIXEL[0]),
+	.R(_r[cpuZ80CPM][1:0]),
+	.G(_g[cpuZ80CPM][1:0]),
+	.B(_b[cpuZ80CPM][1:0]),
+	.HS(_hs[cpuZ80CPM]),
+	.VS(_vs[cpuZ80CPM]),
+	.hBlank(_hblank[cpuZ80CPM]),
+	.vBlank(_vblank[cpuZ80CPM]),
+	.cepix(_CE_PIXEL[cpuZ80CPM]),
 	.ps2Clk(PS2_CLK),
 	.ps2Data(PS2_DAT),
-	.sdCS(_SD_CS[0]),
-	.sdMOSI(_SD_MOSI[0]),
+	.sdCS(_SD_CS[cpuZ80CPM]),
+	.sdMOSI(_SD_MOSI[cpuZ80CPM]),
 	.sdMISO(SD_MISO),
-	.sdSCLK(_SD_SCK[0]),
-	.driveLED(_driveLED[0]),
+	.sdSCLK(_SD_SCK[cpuZ80CPM]),
+	.driveLED(_driveLED[cpuZ80CPM]),
 
 	.cts1(UART_CTS),
-	.rts1(_uart_rts[0]),
+	.rts1(_uart_rts[cpuZ80CPM]),
 	.rxd1(UART_RXD),
-	.txd1(_uart_txd[0])
+	.txd1(_uart_txd[cpuZ80CPM])
 
 );
 
@@ -283,21 +279,21 @@ Microcomputer6502Basic Microcomputer6502Basic
 (
 	.N_RESET(~reset & cpu_type == cpu6502Basic),
 	.clk(cpu_type == cpu6502Basic ? CLK_50M : 0),
-	.R(_r[1][1:0]),
-	.G(_g[1][1:0]),
-	.B(_b[1][1:0]),
-	.HS(_hs[1]),
-	.VS(_vs[1]),
-	.hBlank(_hblank[1]),
-	.vBlank(_vblank[1]),
-	.cepix(_CE_PIXEL[1]),
+	.R(_r[cpu6502Basic][1:0]),
+	.G(_g[cpu6502Basic][1:0]),
+	.B(_b[cpu6502Basic][1:0]),
+	.HS(_hs[cpu6502Basic]),
+	.VS(_vs[cpu6502Basic]),
+	.hBlank(_hblank[cpu6502Basic]),
+	.vBlank(_vblank[cpu6502Basic]),
+	.cepix(_CE_PIXEL[cpu6502Basic]),
 	.ps2Clk(PS2_CLK),
 	.ps2Data(PS2_DAT),
-	.sdCS(_SD_CS[1]),
-	.sdMOSI(_SD_MOSI[1]),
+	.sdCS(_SD_CS[cpu6502Basic]),
+	.sdMOSI(_SD_MOSI[cpu6502Basic]),
 	.sdMISO(SD_MISO),
-	.sdSCLK(_SD_SCK[1]),
-	.driveLED(_driveLED[1])
+	.sdSCLK(_SD_SCK[cpu6502Basic]),
+	.driveLED(_driveLED[cpu6502Basic])
 );
 
 //Reset is not working (even on the original Grant's 6809)
@@ -305,21 +301,21 @@ Microcomputer6809Basic Microcomputer6809Basic
 (
 	.N_RESET(~reset & cpu_type == cpu6809Basic),
 	.clk(cpu_type == cpu6809Basic ? CLK_50M : 0),
-	.R(_r[2][1:0]),
-	.G(_g[2][1:0]),
-	.B(_b[2][1:0]),
-	.HS(_hs[2]),
-	.VS(_vs[2]),
-	.hBlank(_hblank[2]),
-	.vBlank(_vblank[2]),
-	.cepix(_CE_PIXEL[2]),
+	.R(_r[cpu6809Basic][1:0]),
+	.G(_g[cpu6809Basic][1:0]),
+	.B(_b[cpu6809Basic][1:0]),
+	.HS(_hs[cpu6809Basic]),
+	.VS(_vs[cpu6809Basic]),
+	.hBlank(_hblank[cpu6809Basic]),
+	.vBlank(_vblank[cpu6809Basic]),
+	.cepix(_CE_PIXEL[cpu6809Basic]),
 	.ps2Clk(PS2_CLK),
 	.ps2Data(PS2_DAT),
-	.sdCS(_SD_CS[2]),
-	.sdMOSI(_SD_MOSI[2]),
+	.sdCS(_SD_CS[cpu6809Basic]),
+	.sdMOSI(_SD_MOSI[cpu6809Basic]),
 	.sdMISO(SD_MISO),
-	.sdSCLK(_SD_SCK[2]),
-	.driveLED(_driveLED[2])
+	.sdSCLK(_SD_SCK[cpu6809Basic]),
+	.driveLED(_driveLED[cpu6809Basic])
 );
 
 
@@ -327,25 +323,25 @@ Microcomputer6809Forth Microcomputer6809Forth
 (
 	.N_RESET(~reset & cpu_type == cpu6809Forth),
 	.clk(cpu_type == cpu6809Forth ? CLK_50M : 0),
-	.R(_r[3][1:0]),
-	.G(_g[3][1:0]),
-	.B(_b[3][1:0]),
-	.HS(_hs[3]),
-	.VS(_vs[3]),
-	.hBlank(_hblank[3]),
-	.vBlank(_vblank[3]),
-	.cepix(_CE_PIXEL[3]),
+	.R(_r[cpu6809Forth][1:0]),
+	.G(_g[cpu6809Forth][1:0]),
+	.B(_b[cpu6809Forth][1:0]),
+	.HS(_hs[cpu6809Forth]),
+	.VS(_vs[cpu6809Forth]),
+	.hBlank(_hblank[cpu6809Forth]),
+	.vBlank(_vblank[cpu6809Forth]),
+	.cepix(_CE_PIXEL[cpu6809Forth]),
 	.ps2Clk(PS2_CLK),
 	.ps2Data(PS2_DAT),
-	.sdCS(_SD_CS[3]),
-	.sdMOSI(_SD_MOSI[3]),
+	.sdCS(_SD_CS[cpu6809Forth]),
+	.sdMOSI(_SD_MOSI[cpu6809Forth]),
 	.sdMISO(SD_MISO),
-	.sdSCLK(_SD_SCK[3]),
-	.driveLED(_driveLED[3]),
+	.sdSCLK(_SD_SCK[cpu6809Forth]),
+	.driveLED(_driveLED[cpu6809Forth]),
 	.cts1(UART_CTS),
-	.rts1(_uart_rts[3]),
+	.rts1(_uart_rts[cpu6809Forth]),
 	.rxd1(UART_RXD),
-	.txd1(_uart_txd[3]),
+	.txd1(_uart_txd[cpu6809Forth]),
 
         .DDRAM_CLK(DDRAM_CLK),
   	.DDRAM_BUSY(DDRAM_BUSY),

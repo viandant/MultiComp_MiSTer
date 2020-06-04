@@ -100,7 +100,15 @@ architecture struct of Microcomputer6809Forth is
       rd_req            : in std_logic;
       rd_rdy            : out std_logic;
       dbg_state         : out std_logic_vector(1 downto 0);
-      reset             : in std_logic
+      reset             : in std_logic;
+
+      secd_stopped      : in std_logic;
+      din32             : in std_logic_vector(31 downto 0);
+      dout32            : out std_logic_vector(31 downto 0);
+      addr32            : in std_logic_vector(13 downto 0);
+      read32_enable     : in std_logic;
+      write32_enable    : in std_logic;
+      busy32            : out std_logic
       );
   end component ddram;
   
@@ -141,7 +149,8 @@ architecture struct of Microcomputer6809Forth is
 	signal n_shramCS					: std_logic :='1';
 	signal n_shramControlCS			: std_logic :='1';
 	signal n_sdCardCS        		: std_logic :='1';
-
+   signal n_secdControlCS        : std_logic :='1';
+  
 	signal serialClkCount			: std_logic_vector(15 downto 0);
 	signal cpuClkCount				: std_logic_vector(5 downto 0); 
 	signal sdClkCount					: std_logic_vector(5 downto 0); 	
@@ -157,7 +166,20 @@ architecture struct of Microcomputer6809Forth is
 	signal shramRdReq             : std_logic;
 	signal shramRdRdy             : std_logic;
 	signal shramState             : std_logic_vector(1 downto 0);
-	signal shramReset             : std_logic;
+   signal shramReset             : std_logic;
+
+   signal din32                  : std_logic_vector(31 downto 0);
+   signal dout32                 : std_logic_vector(31 downto 0);
+   signal addr32                 : std_logic_vector(13 downto 0);
+   signal read32_enable          : std_logic;
+   signal write32_enable         : std_logic;
+   signal busy32                 : std_logic;
+  
+   signal secdButton             : std_logic;
+   signal secdStop               : std_logic;
+   signal secdStopped            : std_logic;
+   signal secdState              : std_logic_vector(1 downto 0);
+   signal secdReset              : std_logic;
   
 begin
 
@@ -296,9 +318,37 @@ shram: ddram
     rd_req    => shramRdReq,
     rd_rdy    => shramRdRdy,
     dbg_state => shramState,
-    reset     => shramReset or not n_reset
+    reset     => shramReset or not N_RESET,
+
+    secd_stopped => secdStopped,
+    din32 => din32,
+    dout32 => dout32,
+    addr32 => addr32,
+    read32_enable => read32_enable,
+    write32_enable => write32_enable,
+    busy32 => busy32
     );
 
+
+-- ____________________________________________________________________________________
+-- Slave Systems
+secd : entity work.secd_system port map (
+  clk         => clk,
+  reset       => not N_RESET or secdReset,
+  button      => secdButton,
+  ram_read    => read32_enable,
+  ram_in      => dout32,
+  ram_write   => write32_enable,
+  ram_out     => din32,
+  ram_a       => addr32,
+  ram_busy    => busy32,
+  stop_input  => secdStop,
+  stopped     => secdStopped,
+  state       => secdState
+  );
+
+-- ____________________________________________________________________________________
+-- Shared RAM/SECD Control
 cpuHold <= '1' when (shramRdRdy = '0') else '0';
 shram_ioReq : process(clk)
 begin
@@ -306,7 +356,7 @@ begin
     if (shramWeAck = shramWeReq ) and (n_shramCS = '0') and (n_WR = '0') then
       shramWeReq <=  not shramWeReq;
     end if;   
-    shramRdReq <= (not n_shramCS) and n_WR;
+    shramRdReq <= (not n_shramCS and cpuClock) and n_WR;
   end if;
 end process;
 
@@ -315,17 +365,23 @@ begin
   if rising_edge(clk) then
     if n_WR = '0' and n_shramControlCS = '0' then
       case cpuAddress(2 downto 0) is
+        when B"000" =>
+          secdStop   <= cpuDataOut(0);
+          secdButton <= cpuDataOut(1);
         when B"001" =>
           shramAddrHi(15 downto 8) <= cpuDataOut;
         when B"010" =>
           shramAddrHi(7 downto 0) <= cpuDataOut;
         when B"100" =>
           shramReset <= '1';
+          secdReset <= '1';
         when others => 
           null;
       end case;
     else
+      secdButton <= '0';
       shramReset <= '0';
+      secdReset <= '0';
     end if;
   end if;
 end process;
@@ -360,6 +416,7 @@ basRomData when n_basRomCS = '0' else
 "000000" & shramState when n_shramStateCS = '0' else
 shramAddrHi(15 downto 8) when n_shramControlCS = '0' and cpuAddress(2 downto 0) = B"001" else
 shramAddrHi(7 downto 0) when n_shramControlCS = '0' and cpuAddress(2 downto 0) = B"010" else
+"00000" & secdStopped & secdState when n_shramControlCS = '0' and cpuAddress(2 downto 0) = B"000" else
 shramData when n_shramCS = '0' else  
 internalRam1DataOut when n_internalRam1CS= '0' else
 sramData when n_externalRamCS= '0' else

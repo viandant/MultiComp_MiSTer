@@ -23,6 +23,7 @@ set_global_assignment -name QIP_FILE ROMS/6502/M6502_BASIC_ROM.qip
 set_global_assignment -name QIP_FILE ROMS/6809/M6809_EXT_BASIC_ROM.qip
 set_global_assignment -name QIP_FILE ROMS/6809/M6809_FORTH_ROM.qip
 set_global_assignment -name QIP_FILE ROMS/Z80/Z80_CPM_BASIC_ROM.qip
+set_global_assignment -name QIP_FILE secd/vhdl/secd.qip
 set_global_assignment -name VHDL_FILE MicrocomputerZ80CPM.vhd
 set_global_assignment -name VHDL_FILE Microcomputer6502Basic.vhd
 set_global_assignment -name VHDL_FILE Microcomputer6809Basic.vhd

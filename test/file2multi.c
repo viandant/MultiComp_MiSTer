@@ -22,10 +22,9 @@
 #include <stdlib.h>
 
 #define SHMEM_ADDR 0x30000000
-#define SHMEM_SIZE 0x40
-#define SHMEM_MAX  0x100
+#define SHMEM_SIZE 0x10000
+#define SHMEM_MAX  0x10000
 
-char forthcode[SHMEM_MAX];
 static volatile char *shmem_base = 0;
 
 static void shmem_init()
@@ -48,14 +47,39 @@ static void shmem_init()
   close(fd);
 }
 
+void usage(const char * progname) {
+  fprintf(stderr, "Usage: %s [-b|-w|-n] <filename>\n",
+			 progname);
+  exit(2);
+}
+
 int  main(int argc, char **argv) {
 
-  if (argc != 2) {
-      printf("Usage: file2multi <filename>\n");
-      exit(2);
-    }
+  int length_sz;
+  int8_t opt;
+  
+  while ((opt = getopt(argc, argv, "bwn")) != -1) {
+	 printf("opt = %c\n", opt);
+	 switch (opt) {
+	 case 'n':
+		length_sz = 0;
+		break;
+	 case 'b':
+		length_sz = 1;
+		break;
+	 case 'w':
+		length_sz = 2;
+		break;
+	 default: /* '?' */
+		usage(argv[0]);
+	 }
+  }
+  printf("optind = %i, argc = %i\n", optind, argc);
+  
+  if (optind+1 != argc)
+	 usage(argv[0]);
 
-  int inp = open(argv[1], O_RDONLY);
+  int inp = open(argv[optind], O_RDONLY);
 
   if (inp < 0) {
     printf("Could not open file.\n");
@@ -66,8 +90,13 @@ int  main(int argc, char **argv) {
   if (shmem_base == 0)
     exit(1);
 
-  ssize_t sz = read(inp, (void *)shmem_base+1, SHMEM_MAX);
-  shmem_base[0] = sz;
+  ssize_t sz = read(inp, (void *)shmem_base+length_sz, SHMEM_MAX);
+  if (length_sz == 1)
+	 shmem_base[0] = sz;
+  else if (length_sz == 2) {
+	 shmem_base[0] = length_sz>>8;
+	 shmem_base[1] = length_sz & 0xff;
+  };
   
   close(inp);
   if (sz < 0) {
