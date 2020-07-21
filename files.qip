@@ -29,3 +29,4 @@ set_global_assignment -name VHDL_FILE Microcomputer6502Basic.vhd
 set_global_assignment -name VHDL_FILE Microcomputer6809Basic.vhd
 set_global_assignment -name VHDL_FILE Microcomputer6809Forth.vhd
 set_global_assignment -name SYSTEMVERILOG_FILE Components/DDRAM/ddram.sv
+set_global_assignment -name SYSTEMVERILOG_FILE Components/DDRAM/cache.sv
