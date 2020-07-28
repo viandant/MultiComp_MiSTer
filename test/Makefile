@@ -8,4 +8,4 @@ upload_shram: file2multi shram.fss
 	./file2multi shram.fss
 
 psexp: psexp.c secdmem.o
-restart: restart.c secdmem.o
+runsecd: runsecd.c secdmem.o

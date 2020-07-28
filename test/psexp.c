@@ -116,21 +116,24 @@ int  main(int argc, char **argv) {
   
   int sexp = strtol(argv[1],NULL,0);
 
-  printf("sexp = %x\n", sexp);
-  printf("*sexp = %x\n", deref(sexp));
+  printf("Reading the S-expression at %x\n", sexp);
+  printf(" The value of this memory cell is %x", deref(sexp));
+  printf(" representing a ");
   switch (type(sexp)) {
   case 0:
-	 printf("cons\n");
+	 printf("cons");
 	 break;
   case 2:
-	 printf("sym\n");
+	 printf("sym");
 	 break;
   case 3:
-	 printf("number\n");
+	 printf("number");
 	 break;
   default:
-	 printf("Unknonw type\n");
+	 printf("Unknonw type");
   };
+  printf(".\n");
+  printf(" The full S-expression:\n  ");
   printsexp(sexp, 0, 0);
   printf("\n");
   return 0;
