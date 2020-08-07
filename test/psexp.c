@@ -12,10 +12,16 @@
 #include <stdlib.h>
 #include "secdmem.h"
 
+#define SYMTABLE_MAX 4096
+#define SYMMAP_MAX 1024
+
 static volatile char * shmem_base = 0;
 
+char symtable[SYMTABLE_MAX];
+unsigned int symmap[SYMMAP_MAX];
+
 void usage(const char * progname) {
-  fprintf(stderr, "Usage: <Start address>%s\n",
+  fprintf(stderr, "Usage: %s <Start address> [<symbol table file>]\n",
 			 progname);
   exit(2);
 }
@@ -87,8 +93,7 @@ void printsexp(uint16_t sexp, int incdr, int withAddr) {
 		printf("F");
 		break;
 	 default:
-
-		printf("<sym %x>", cdr(sexp));
+		printf(symtable + symmap[cdr(sexp) - 1]);
 	 }
 	 break;
   case 3:
@@ -107,7 +112,7 @@ int  main(int argc, char **argv) {
   int length_sz;
   int8_t opt;
   
-  if (argc != 2)
+  if ( (argc != 2) && (argc != 3) )
 	 usage(argv[0]);
   
   shmem_base = shmem_init();
@@ -116,6 +121,44 @@ int  main(int argc, char **argv) {
   
   int sexp = strtol(argv[1],NULL,0);
 
+  if (argc > 2) {
+	 int symstream = open(argv[2], O_RDONLY);
+	 if (symstream < 0) {
+		fprintf(stderr, "Could not open symbol table file.\n");
+		exit(3);
+	 }
+
+	 ssize_t symtable_sz = read(symstream, symtable, SYMTABLE_MAX);
+	 if (symtable_sz < 0) {
+		fprintf(stderr, "Could not read symbol table.\n");
+		exit(5);
+	 }
+	 if (symtable_sz == SYMTABLE_MAX) {
+		char c;
+		if (read(symstream, &c, 1) != 0) {
+		  fprintf(stderr, "Sorry, the total length of all symbol names exhausts the implemented space.\n");
+		  exit(6);
+		}
+	 }
+	 close(symstream);
+	 
+	 int i,j;
+	 j = 0;
+	 for (i=0; i < symtable_sz; i++) {
+		if (symtable[i] == 0) {
+		  symmap[j] = i+1;
+		  j++;
+		  if (j > SYMMAP_MAX) {
+			 fprintf(stderr, "Sorry, the symbol table is not implemented for more than %i symbols.", SYMMAP_MAX);
+			 exit(4);
+		  }
+		}
+	 }
+	 symmap[j] = symtable_sz+1;
+	 close(symstream);
+  }
+  
+  
   printf("Reading the S-expression at %x\n", sexp);
   printf(" The value of this memory cell is %x", deref(sexp));
   printf(" representing a ");
