@@ -61,9 +61,9 @@ module ddram
 
 //assign DDRAM_BURSTCNT = ram_burst;
 assign DDRAM_BURSTCNT = 1;
-assign DDRAM_BE       = address_sel == 1 ? 8'b1111<<{ram_address32[0],2'b00} | {8{ram_read}} :
+assign DDRAM_BE       = address_sel == 1 ? 8'b11111111 | {8{ram_read}} :
                         (8'd1<<{ram_address[2:0]}) | {8{ram_read}} ;
-assign DDRAM_ADDR     = address_sel == 1 ? {15'b011000000000000, ram_address32[13:1]} :
+assign DDRAM_ADDR     = address_sel == 1 ? {14'b01100000000000, ram_address32[13:0]} :
                         {3'b011, ram_address[27:3]};
 assign DDRAM_RD       = ram_read;
 assign DDRAM_DIN      = ram_data;
@@ -75,7 +75,7 @@ assign dout32 = ram_q32;
 
 reg [63:0] ram_cache32, ram_cache;
 reg [7:0]  ram_q;
-reg [31:0] ram_q32;
+reg [63:0] ram_q32;
 reg [63:0] ram_data;
 reg [27:0] ram_address, cache_address;
 
@@ -101,8 +101,8 @@ reg [7:0]  cached        = 0;
 reg [7:0]  cached8       = 0;
 reg        address_sel   = 0;
 
-reg [31:0]  acache_data_wr;
-wire [31:0] acache_data_rd;
+reg  [63:0] acache_data_wr;
+wire [63:0] acache_data_rd;
 reg         acache_wr;
 wire        acache_valid;
 wire  [13:0] acache_addr;
@@ -110,7 +110,7 @@ reg   [13:0] acache_wr_addr;
 
 assign acache_addr = acache_wr ? acache_wr_addr : addr32;
 
-Cache #(.DEPTH(12), .WIDTH(32), .ADDRESS_WIDTH(14))
+Cache #(.DEPTH(12), .WIDTH(64), .ADDRESS_WIDTH(14))
  acache(
 	.clk(DDRAM_CLK),
    .address(acache_addr),
@@ -161,10 +161,10 @@ reg old_rd, old_we, old_rd32, old_wr32;
                 cached 			 <= 8'h00;
                 state2[0] 		 <= 0;
                 busy32 			 <= 0;
-                ram_q32 		 <= DDRAM_DOUT[{ram_address32[0], 5'b00000} +:32];
+                ram_q32 		 <= DDRAM_DOUT;
                 ram_cache32 	 <= DDRAM_DOUT;
 
-					 acache_data_wr <= DDRAM_DOUT[{ram_address32[0], 5'b00000} +:32];
+					 acache_data_wr <= DDRAM_DOUT;
 					 acache_wr 		 <= 1;
 					 acache_wr_addr <= addr32;
              end
@@ -184,22 +184,22 @@ reg old_rd, old_we, old_rd32, old_wr32;
              busy32      <= 0;
              
              if(~old_we && write32_enable) begin
-                ram_cache32[{addr32[0], 5'b00000} +:32] <= din32;
-                ram_data 										  <= {2{din32}};
-                ram_address32 								  <= addr32;
-                busy32 											  <= 1;
-                ram_write 										  <= 1;
-                cached 											  <= ((ram_address32[13:1] == addr32[13:1]) ? cached : 8'h00) | (8'd1<<addr32[0]);
-                address_sel 									  <= 1;
+                ram_cache32 	 <= {8'd0,{din32}};
+                ram_data 		 <= {8'd0,{din32}};
+                ram_address32  <= addr32;
+                busy32 			 <= 1;
+                ram_write 		 <= 1;
+                cached 			 <= 1;
+                address_sel 	 <= 1;
 
-					 acache_wr 										  <= 1;
-					 acache_data_wr 								  <= din32;
-					 acache_wr_addr 								  <= addr32;
+					 acache_wr 		 <= 1;
+					 acache_data_wr <= din32;
+					 acache_wr_addr <= addr32;
              end 
              
              if(~old_rd32 && read32_enable) begin
-                if((ram_address32[13:1] == addr32[13:1]) && (cached & (8'd1<<addr32[0]))) begin
-                   ram_q32 <= ram_cache32[{addr32[0], 5'b00000} +:32];
+                if ( (ram_address32[13:0] == addr32[13:0]) && cached ) begin
+                   ram_q32 <= ram_cache32;
                 end
                 else if(acache_valid) begin
 					    ram_q32 <= acache_data_rd;

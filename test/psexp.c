@@ -27,7 +27,7 @@ void usage(const char * progname) {
 }
 
 uint32_t deref(uint16_t ptr) {
-  return * (uint32_t *)(shmem_base + 4 * ptr);
+  return * (uint32_t *)(shmem_base + 8 * ptr);
 }
 
 uint16_t cdrc(uint32_t cell) {

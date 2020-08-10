@@ -9,8 +9,8 @@
 #include <stdlib.h>
 
 #define SHMEM_ADDR 0x30000000
-#define SHMEM_SIZE 0x10000
-#define SHMEM_MAX  0x10000
+#define SHMEM_SIZE 0x20000
+#define SHMEM_MAX  0x20000
 
 volatile char * shmem_init();
 #endif
