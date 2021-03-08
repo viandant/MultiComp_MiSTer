@@ -63,11 +63,58 @@ entity MicrocomputerZ80CPM is
 		usbCS			: out std_logic;
 		usbMOSI			: out std_logic;
 		usbMISO			: in std_logic;
-		usbSCLK			: out std_logic
+		usbSCLK			: out std_logic;
+
+                DDRAM_CLK	        : in std_logic;
+                DDRAM_BUSY	        : in std_logic;      
+                DDRAM_BURSTCNT          : out std_logic_vector(7 downto 0);
+                DDRAM_ADDR	        : out std_logic_vector(28 downto 0);
+                DDRAM_DOUT	        : in std_logic_vector(63 downto 0);
+                DDRAM_DOUT_READY        : in std_logic;
+                DDRAM_RD		: out std_logic;
+                DDRAM_DIN	        : out std_logic_vector(63 downto 0);
+                DDRAM_BE		: out std_logic_vector(7 downto 0);
+                DDRAM_WE		: out std_logic      
+
 	);
 end MicrocomputerZ80CPM;
 
 architecture struct of MicrocomputerZ80CPM is
+
+  component ddram is
+    port (
+      DDRAM_CLK         : in std_logic;
+  
+      DDRAM_BUSY        : in std_logic;
+      DDRAM_BURSTCNT    : out std_logic_vector(7 downto 0);
+      DDRAM_ADDR        : out std_logic_vector(28 downto 0);
+      DDRAM_DOUT        : in std_logic_vector(63 downto 0);
+      DDRAM_DOUT_READY  : in std_logic;
+      DDRAM_RD          : out std_logic;
+      DDRAM_DIN         : out std_logic_vector(63 downto 0);
+      DDRAM_BE          : out std_logic_vector(7 downto 0);
+      DDRAM_WE          : out std_logic;
+
+      wraddr            : in std_logic_vector(27 downto 0);      
+      din               : in std_logic_vector(7 downto 0);
+      we_req            : in std_logic;
+      we_ack            : out std_logic;
+      
+      rdaddr            : in std_logic_vector(27 downto 0);
+      dout              : out std_logic_vector(7 downto 0);
+      rd_req            : in std_logic;
+      rd_rdy            : out std_logic;
+      dbg_state         : out std_logic_vector(1 downto 0);
+      reset             : in std_logic;
+
+      din32             : in std_logic_vector(31 downto 0);
+      dout32            : out std_logic_vector(31 downto 0);
+      addr32            : in std_logic_vector(13 downto 0);
+      read32_enable     : in std_logic;
+      write32_enable    : in std_logic;
+      busy32            : out std_logic
+      );
+  end component ddram;
 
 	signal n_WR						: std_logic;
 	signal n_RD						: std_logic;
@@ -92,6 +139,7 @@ architecture struct of MicrocomputerZ80CPM is
 	signal n_MREQ					: std_logic :='1';
 	signal n_IORQ					: std_logic :='1';	
 
+        signal n_WAIT                                   : std_logic :='1';
 	signal n_int1					: std_logic :='1';	
 	signal n_int2					: std_logic :='1';	
 	
@@ -103,6 +151,9 @@ architecture struct of MicrocomputerZ80CPM is
 	signal n_interface2CS			: std_logic :='1';
 	signal n_ch376sCS				: std_logic :='1';
 	signal n_sdCardCS				: std_logic :='1';
+	signal n_shramStateCS			: std_logic :='1';
+	signal n_shramCS					: std_logic :='1';
+	signal n_shramControlCS			: std_logic :='1';
 
 	signal serialClkCount			: std_logic_vector(15 downto 0);
 	signal cpuClkCount				: std_logic_vector(5 downto 0); 
@@ -111,6 +162,18 @@ architecture struct of MicrocomputerZ80CPM is
 	signal serialClock				: std_logic;
 	signal sdClock					: std_logic;
 
+  	signal shramData		         : std_logic_vector(7 downto 0);
+	signal shramAddress           : std_logic_vector(15 downto 0);
+	signal shramAddrHi            : std_logic_vector(15 downto 0) := (others => '0');
+	signal shramWeReq             : std_logic;
+	signal shramWeAck             : std_logic;
+	signal shramRdReq             : std_logic;
+	signal shramRdRdy             : std_logic;
+	signal shramState             : std_logic_vector(1 downto 0);
+        signal shramReset             : std_logic;
+
+        signal old_shramRdRdy             : std_logic := '1';
+  
 	--CPM
 	signal n_RomActive 				: std_logic := '0';
 
@@ -156,7 +219,7 @@ generic map(mode => 1, t2write => 1, iowait => 0)
 port map(
 	reset_n => N_RESET,
 	clk_n => cpuClock,
-	wait_n => '1',
+	wait_n => n_WAIT,
 	int_n => '1',
 	nmi_n => '1',
 	busrq_n => '1',
@@ -190,6 +253,7 @@ port map
 	wren => not(n_memWR or n_internalRam1CS),
 	q => internalRam1DataOut
 );
+
 
 -- ____________________________________________________________________________________
 -- INPUT/OUTPUT DEVICES GO HERE	
@@ -280,6 +344,89 @@ port map (
 );
 
 
+        -- Shared RAM for communication with HPS and other 'computers'
+shram: ddram
+  port map(
+    DDRAM_CLK => DDRAM_CLK,
+    DDRAM_BUSY => DDRAM_BUSY,
+    DDRAM_BURSTCNT => DDRAM_BURSTCNT,
+    DDRAM_ADDR => DDRAM_ADDR,
+    DDRAM_DOUT => DDRAM_DOUT,
+    DDRAM_DOUT_READY => DDRAM_DOUT_READY,
+    DDRAM_RD => DDRAM_RD,
+    DDRAM_DIN => DDRAM_DIN,
+    DDRAM_BE  => DDRAM_BE,
+    DDRAM_WE  => DDRAM_WE,
+
+    wraddr    => B"0000" & "000" & shramAddrHi & cpuAddress(4 downto 0),
+    din       => cpuDataOut,
+    we_req    => shramWeReq,
+    we_ack    => shramWeAck,
+
+    rdaddr    => B"0000" & "000" & shramAddrHi & cpuAddress(4 downto 0),
+    dout      => shramData ,
+    rd_req    => shramRdReq,
+    rd_rdy    => shramRdRdy,
+    dbg_state => shramState,
+    reset     => shramReset or not N_RESET,
+
+    din32 => X"00000000",
+    -- dout32 => dout32,
+    addr32 => B"00000000000000",
+    read32_enable => '0',
+    write32_enable => '0'
+    -- busy32 => busy32
+    );
+
+-- ____________________________________________________________________________________
+-- Shared RAM Control
+
+
+shram_rdy : process(clk)
+begin
+  if rising_edge(clk) then
+    old_shramRdRdy <= shramRdRdy;
+    if (old_shramRdRdy = '1' and shramRdRdy = '0')  and (n_shramCS = '0') and (n_ioRD = '0') then
+      n_WAIT <=       '0';
+    end if;
+    if (shramRdRdy = '1') then
+      n_WAIT <= '1';
+    end if;
+  end if;
+end process;
+
+        
+shram_ioReq : process(clk)
+begin
+  if rising_edge(clk) then
+    if (shramWeAck = shramWeReq ) and (n_shramCS = '0') and (n_ioWR = '0') then
+      shramWeReq <=  not shramWeAck;
+    end if;   
+    shramRdReq <= not n_shramCS and not n_ioRD;
+  end if;
+end process;
+
+shram_control : process(clk)
+begin
+  if rising_edge(clk) then
+    if n_ioWR = '0' and n_shramControlCS = '0' then
+      case cpuAddress(2 downto 0) is
+        when B"001" =>
+          shramAddrHi(15 downto 8) <= cpuDataOut;
+        when B"010" =>
+          shramAddrHi(7 downto 0) <= cpuDataOut;
+        when B"100" =>
+          shramReset <= '1';
+        when others => 
+          null;
+      end case;
+    else
+      shramReset <= '0';
+    end if;
+  end if;
+end process;
+
+
 -- ____________________________________________________________________________________
 -- MEMORY READ/WRITE LOGIC GOES HERE
 
@@ -297,6 +444,9 @@ n_interface2CS <= '0' when cpuAddress(7 downto 1) = "1000001" and (n_ioWR='0' or
 n_ch376sCS <= '0' when cpuAddress(7 downto 1) = "0010000" and (n_ioWR='0' or n_ioRD = '0') else '1'; -- 2 Bytes $20-$21
 n_sdCardCS <= '0' when cpuAddress(7 downto 3) = "10001" and (n_ioWR='0' or n_ioRD = '0') else '1'; -- 8 Bytes $88-$8F
 n_internalRam1CS <= not n_basRomCS; -- Full Internal RAM - 64 K
+n_shramCS        <= '0' when cpuAddress( 7 downto 5)  = "101"      and (n_ioWR='0' or n_ioRD = '0') else '1'; -- A0-BF SHRAM memory "page"
+n_shramStateCS   <= '0' when cpuAddress( 7 downto 0)  = "11000000" and (n_ioWR='0' or n_ioRD = '0') else '1'; -- C0 SHRAM State for Debugging
+n_shramControlCS <= '0' when cpuAddress( 7 downto 3)  = "11010"    and (n_ioWR='0' or n_ioRD = '0') else '1'; -- DX SHRAM Control
 
 -- ____________________________________________________________________________________
 -- BUS ISOLATION GOES HERE
@@ -307,6 +457,10 @@ interface2DataOut when n_interface2CS = '0' else
 ch376sDataOut when n_ch376sCS = '0' else
 sdCardDataOut when n_sdCardCS = '0' else
 basRomData when n_basRomCS = '0' else
+"000000" & shramState when n_shramStateCS = '0' else
+shramAddrHi(15 downto 8) when n_shramControlCS = '0' and cpuAddress(2 downto 0) = B"001" else
+shramAddrHi(7 downto 0) when n_shramControlCS = '0' and cpuAddress(2 downto 0) = B"010" else
+shramData when n_shramCS = '0' else  
 internalRam1DataOut when n_internalRam1CS= '0' else
 sramData when n_externalRamCS= '0' else
 x"FF";

@@ -161,7 +161,9 @@ module emu
 assign ADC_BUS  = 'Z;
 assign {SD_SCK, SD_MOSI, SD_CS} = 'Z;
 assign {SDRAM_DQ, SDRAM_A, SDRAM_BA, SDRAM_CLK, SDRAM_CKE, SDRAM_DQML, SDRAM_DQMH, SDRAM_nWE, SDRAM_nCAS, SDRAM_nRAS, SDRAM_nCS} = 'Z;
-assign {DDRAM_CLK, DDRAM_BURSTCNT, DDRAM_ADDR, DDRAM_DIN, DDRAM_BE, DDRAM_RD, DDRAM_WE} = 0;
+//assign {DDRAM_CLK, DDRAM_BURSTCNT, DDRAM_ADDR, DDRAM_DIN, DDRAM_BE, DDRAM_RD, DDRAM_WE} = 0;
+wire 		      clk_100;
+assign DDRAM_CLK = clk_100;
 
 assign UART_RTS = UART_CTS;
 assign UART_DTR = UART_DSR;
@@ -260,6 +262,7 @@ pll pll
 	.refclk(CLK_50M),
 	.rst(0),
 	.outclk_0(clk_sys),
+        .outclk_1(clk_100),
 	.locked(locked)
 );
 
@@ -399,8 +402,21 @@ MicrocomputerZ80CPM MicrocomputerZ80CPM
 	.usbSCLK 	(USER_OUT[2]),
 	.usbMISO 	(USER_IN[3]),
 	.usbMOSI 	(USER_OUT[4]),
-	.usbCS 		(USER_OUT[5])
+	.usbCS 		(USER_OUT[5]),
+
+        .DDRAM_CLK(DDRAM_CLK),
+  	.DDRAM_BUSY(DDRAM_BUSY),
+  	.DDRAM_BURSTCNT(DDRAM_BURSTCNT),
+  	.DDRAM_ADDR(DDRAM_ADDR),
+  	.DDRAM_DOUT(DDRAM_DOUT),
+  	.DDRAM_DOUT_READY(DDRAM_DOUT_READY),
+  	.DDRAM_RD(DDRAM_RD),
+  	.DDRAM_DIN(DDRAM_DIN),
+  	.DDRAM_BE(DDRAM_BE),
+  	.DDRAM_WE(DDRAM_WE)
+
 );
+
 
 MicrocomputerZ80Basic MicrocomputerZ80Basic
 (
