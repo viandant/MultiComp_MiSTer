@@ -152,9 +152,9 @@ architecture struct of MicrocomputerZ80CPM is
 	signal n_ch376sCS				: std_logic :='1';
 	signal n_sdCardCS				: std_logic :='1';
 	signal n_shramStateCS			: std_logic :='1';
-	signal n_shramCS					: std_logic :='1';
-	signal n_shramControlCS			: std_logic :='1';
-
+   signal n_shramioCS            : std_logic :='1';
+   signal n_shramControlCS       : std_logic :='1';
+   signal n_shramMemCS           : std_logic :='1';
 	signal serialClkCount			: std_logic_vector(15 downto 0);
 	signal cpuClkCount				: std_logic_vector(5 downto 0); 
 	signal sdClkCount				: std_logic_vector(5 downto 0); 	
@@ -165,15 +165,19 @@ architecture struct of MicrocomputerZ80CPM is
   	signal shramData		         : std_logic_vector(7 downto 0);
 	signal shramAddress           : std_logic_vector(15 downto 0);
 	signal shramAddrHi            : std_logic_vector(15 downto 0) := (others => '0');
+	signal shramWinStart          : std_logic_vector(15 downto 0) := (others => '0');
+	signal shramWinSize           : std_logic_vector(15 downto 0) := (others => '0');
+   signal shramVisible           : std_logic;
 	signal shramWeReq             : std_logic;
 	signal shramWeAck             : std_logic;
+	signal shramWeAck0            : std_logic;
 	signal shramRdReq             : std_logic;
 	signal shramRdRdy             : std_logic;
 	signal shramState             : std_logic_vector(1 downto 0);
-        signal shramReset             : std_logic;
+   signal shramReset             : std_logic;
+   signal DDRAM_RDADDR           : std_logic_vector(27 downto 0) := (others => '0');
+   signal DDRAM_WRADDR           : std_logic_vector(27 downto 0) := (others => '0');
 
-        signal old_shramRdRdy             : std_logic := '1';
-  
 	--CPM
 	signal n_RomActive 				: std_logic := '0';
 
@@ -343,7 +347,6 @@ port map (
 	clk 	=> 	sdClock -- twice the spi clk
 );
 
-
         -- Shared RAM for communication with HPS and other 'computers'
 shram: ddram
   port map(
@@ -358,12 +361,12 @@ shram: ddram
     DDRAM_BE  => DDRAM_BE,
     DDRAM_WE  => DDRAM_WE,
 
-    wraddr    => B"0000" & "000" & shramAddrHi & cpuAddress(4 downto 0),
+    wraddr    => DDRAM_WRADDR,
     din       => cpuDataOut,
     we_req    => shramWeReq,
     we_ack    => shramWeAck,
 
-    rdaddr    => B"0000" & "000" & shramAddrHi & cpuAddress(4 downto 0),
+    rdaddr    => DDRAM_RDADDR,
     dout      => shramData ,
     rd_req    => shramRdReq,
     rd_rdy    => shramRdRdy,
@@ -377,32 +380,32 @@ shram: ddram
     write32_enable => '0'
     -- busy32 => busy32
     );
-
+        
 -- ____________________________________________________________________________________
 -- Shared RAM Control
 
-
-shram_rdy : process(clk)
-begin
-  if rising_edge(clk) then
-    old_shramRdRdy <= shramRdRdy;
-    if (old_shramRdRdy = '1' and shramRdRdy = '0')  and (n_shramCS = '0') and (n_ioRD = '0') then
-      n_WAIT <=       '0';
-    end if;
-    if (shramRdRdy = '1') then
-      n_WAIT <= '1';
-    end if;
-  end if;
-end process;
-
-        
 shram_ioReq : process(clk)
 begin
   if rising_edge(clk) then
-    if (shramWeAck = shramWeReq ) and (n_shramCS = '0') and (n_ioWR = '0') then
-      shramWeReq <=  not shramWeAck;
-    end if;   
-    shramRdReq <= not n_shramCS and not n_ioRD;
+    if (((n_shramioCS = '0') and (n_ioWR = '0')) or ((n_shramMemCS = '0') and (n_memWR = '0'))) then
+      if (shramWeAck0 = shramWeReq )
+      then
+        shramWeReq <=  not shramWeAck0;
+        if n_ioWR = '0' then
+          DDRAM_WRADDR <= B"0000" & "000" & shramAddrHi & cpuAddress(4 downto 0);
+        else
+          DDRAM_WRADDR <= B"000000000000" & cpuAddress - shramWinStart;
+        end if;
+      end if;
+    else
+      shramWeAck0 <= shramWeAck;
+    end if;
+    shramRdReq <= (not n_shramioCS and not n_ioRD) or (not n_shramMemCS and not n_memRD);
+    if n_ioRD = '0' then
+      DDRAM_RDADDR <= B"0000" & "000" & shramAddrHi & cpuAddress(4 downto 0);
+    else
+      DDRAM_RDADDR <= B"000000000000" & cpuAddress - shramWinStart;
+    end if;
   end if;
 end process;
 
@@ -411,12 +414,22 @@ begin
   if rising_edge(clk) then
     if n_ioWR = '0' and n_shramControlCS = '0' then
       case cpuAddress(2 downto 0) is
-        when B"001" =>
+        when B"000" =>
           shramAddrHi(15 downto 8) <= cpuDataOut;
-        when B"010" =>
+        when B"001" =>
           shramAddrHi(7 downto 0) <= cpuDataOut;
+        when B"010" =>
+          shramWinStart(15 downto 8) <= cpuDataOut;
+        when B"011" =>
+          shramWinStart(7 downto 0) <= cpuDataOut;
         when B"100" =>
-          shramReset <= '1';
+          shramWinSize(15 downto 8) <= cpuDataOut;
+        when B"101" =>
+          shramWinSize(7 downto 0) <= cpuDataOut;
+        when B"110" =>
+          shramReset <= cpuDataOut(0);
+        when B"111" =>
+          shramVisible <= cpuDataOut(0);
         when others => 
           null;
       end case;
@@ -425,7 +438,6 @@ begin
     end if;
   end if;
 end process;
-
 
 -- ____________________________________________________________________________________
 -- MEMORY READ/WRITE LOGIC GOES HERE
@@ -443,11 +455,12 @@ n_interface1CS <= '0' when cpuAddress(7 downto 1) = "1000000" and (n_ioWR='0' or
 n_interface2CS <= '0' when cpuAddress(7 downto 1) = "1000001" and (n_ioWR='0' or n_ioRD = '0') else '1'; -- 2 Bytes $82-$83
 n_ch376sCS <= '0' when cpuAddress(7 downto 1) = "0010000" and (n_ioWR='0' or n_ioRD = '0') else '1'; -- 2 Bytes $20-$21
 n_sdCardCS <= '0' when cpuAddress(7 downto 3) = "10001" and (n_ioWR='0' or n_ioRD = '0') else '1'; -- 8 Bytes $88-$8F
-n_internalRam1CS <= not n_basRomCS; -- Full Internal RAM - 64 K
-n_shramCS        <= '0' when cpuAddress( 7 downto 5)  = "101"      and (n_ioWR='0' or n_ioRD = '0') else '1'; -- A0-BF SHRAM memory "page"
-n_shramStateCS   <= '0' when cpuAddress( 7 downto 0)  = "11000000" and (n_ioWR='0' or n_ioRD = '0') else '1'; -- C0 SHRAM State for Debugging
-n_shramControlCS <= '0' when cpuAddress( 7 downto 3)  = "11010"    and (n_ioWR='0' or n_ioRD = '0') else '1'; -- DX SHRAM Control
-
+n_shramMemCS    <= '0' when shramVisible = '1' and cpuAddress >= shramWinStart and cpuAddress < shramWinStart + shramWinSize else '1';
+n_internalRam1CS <= not n_basRomCS or not n_shramMemCS; -- Full Internal RAM - 64 K
+n_shramioCS        <= '0' when cpuAddress( 7 downto 5)  = "101"      and (n_ioWR='0' or n_ioRD = '0') else '1'; -- $A0-$BF SHRAM memory "page"
+n_shramStateCS   <= '0' when cpuAddress( 7 downto 0)  = "11000000" and (n_ioWR='0' or n_ioRD = '0') else '1'; -- $C0 SHRAM State for Debugging
+n_shramControlCS <= '0' when cpuAddress( 7 downto 3)  = "11010"    and (n_ioWR='0' or n_ioRD = '0') else '1'; -- $DX SHRAM Control
+n_wait           <= '0' when ((n_shramMemCS = '0' and n_memRD = '0') or  (n_shramioCS  = '0' or n_ioRD = '0')) and shramRdRdy = '0' else '1';
 -- ____________________________________________________________________________________
 -- BUS ISOLATION GOES HERE
 
@@ -458,9 +471,14 @@ ch376sDataOut when n_ch376sCS = '0' else
 sdCardDataOut when n_sdCardCS = '0' else
 basRomData when n_basRomCS = '0' else
 "000000" & shramState when n_shramStateCS = '0' else
-shramAddrHi(15 downto 8) when n_shramControlCS = '0' and cpuAddress(2 downto 0) = B"001" else
-shramAddrHi(7 downto 0) when n_shramControlCS = '0' and cpuAddress(2 downto 0) = B"010" else
-shramData when n_shramCS = '0' else  
+shramAddrHi(15 downto 8) when n_shramControlCS = '0' and cpuAddress(2 downto 0) = B"000" else
+shramAddrHi(7 downto 0) when n_shramControlCS = '0' and cpuAddress(2 downto 0) = B"001" else
+shramWinStart(15 downto 8) when n_shramControlCS = '0' and cpuAddress(2 downto 0) = B"010" else
+shramWinStart(7 downto 0) when n_shramControlCS = '0' and cpuAddress(2 downto 0) = B"011" else
+shramWinSize(15 downto 8) when n_shramControlCS = '0' and cpuAddress(2 downto 0) = B"100" else
+shramWinSize(7 downto 0) when n_shramControlCS = '0' and cpuAddress(2 downto 0) = B"101" else
+"0000000" & shramVisible when n_shramControlCS = '0' and cpuAddress(2 downto 0) = B"111" else
+shramData when n_shramioCS = '0' or n_shramMemCS = '0' else  
 internalRam1DataOut when n_internalRam1CS= '0' else
 sramData when n_externalRamCS= '0' else
 x"FF";
